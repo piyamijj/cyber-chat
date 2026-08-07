@@ -157,8 +157,10 @@ export default function ChatPage() {
 
           try {
             const parsed = JSON.parse(data);
-            const delta: string | undefined =
-              parsed?.choices?.[0]?.delta?.content;
+            if (parsed?.error) {
+              continue;
+            }
+            const delta: string | undefined = parsed?.content;
             if (delta) {
               if (!assistantAdded) {
                 assistantAdded = true;
