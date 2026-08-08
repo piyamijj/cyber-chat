@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
 import { resolveGroqModel } from "@/lib/models";
+import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
 
 export const runtime = "nodejs";
 
@@ -73,11 +74,20 @@ export async function POST(req: NextRequest) {
     baseURL: "https://api.groq.com/openai/v1",
   });
 
+  // Always enforce our own system prompt server-side: drop any system
+  // messages the client may have sent, then prepend the fixed one.
+  // This keeps identity/formatting rules non-overridable from the UI.
+  const sanitizedMessages = messages.filter((m) => m.role !== "system");
+  const finalMessages: ChatMessage[] = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...sanitizedMessages,
+  ];
+
   let stream;
   try {
     stream = await client.chat.completions.create({
       model: groqModel,
-      messages,
+      messages: finalMessages,
       stream: true,
     });
   } catch (err: any) {
