@@ -159,7 +159,6 @@ export async function POST(req: NextRequest) {
           sseEncode({ error: "The response stream was interrupted." })
         );
       } finally {
-        controller.close();
         if (hasValidConversation && fullContent) {
           try {
             await appendMessage(
@@ -172,6 +171,7 @@ export async function POST(req: NextRequest) {
             // Ignore persistence failures; chat still works without history.
           }
         }
+        controller.close();
       }
     },
   });
