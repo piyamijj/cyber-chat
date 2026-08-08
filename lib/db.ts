@@ -10,6 +10,9 @@ export function ensureSchema(): Promise<void> {
   if (!schemaReady) {
     schemaReady = (async () => {
       await sql`CREATE EXTENSION IF NOT EXISTS pgcrypto`;
+      // pgvector: powers the semantic cache (Phase B) — embeddings are
+      // stored as a `vector` column and matched with cosine distance.
+      await sql`CREATE EXTENSION IF NOT EXISTS vector`;
 
       await sql`
         CREATE TABLE IF NOT EXISTS conversations (
@@ -40,6 +43,37 @@ export function ensureSchema(): Promise<void> {
       await sql`
         CREATE INDEX IF NOT EXISTS idx_conversations_device_updated
         ON conversations (device_id, updated_at DESC)
+      `;
+
+      // Response cache (Phase A: exact match via normalized_question,
+      // Phase B: semantic match via embedding). One row per
+      // (question, model) pair — the same question can be cached
+      // separately per model, since different models may answer
+      // differently.
+      await sql`
+        CREATE TABLE IF NOT EXISTS response_cache (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          model TEXT NOT NULL,
+          normalized_question TEXT NOT NULL,
+          original_question TEXT NOT NULL,
+          answer TEXT NOT NULL,
+          embedding vector(768),
+          hit_count INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+          last_used_at TIMESTAMPTZ NOT NULL DEFAULT now()
+        )
+      `;
+
+      await sql`
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_response_cache_exact
+        ON response_cache (model, normalized_question)
+      `;
+
+      // HNSW index for fast approximate cosine-similarity search
+      // (Phase B semantic lookup).
+      await sql`
+        CREATE INDEX IF NOT EXISTS idx_response_cache_embedding
+        ON response_cache USING hnsw (embedding vector_cosine_ops)
       `;
     })();
   }

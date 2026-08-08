@@ -14,6 +14,7 @@ interface ChatMessage {
   attachedFileName?: string;
   imageBase64?: string;
   imageMimeType?: string;
+  fromCache?: boolean;
 }
 
 interface Conversation {
@@ -365,13 +366,19 @@ export default function ChatPage() {
               continue;
             }
             const delta: string | undefined = parsed?.content;
+            const isCached: boolean = !!parsed?.cached;
             if (delta) {
               if (!assistantAdded) {
                 assistantAdded = true;
                 setIsWaitingFirstToken(false);
                 setMessages((prev) => [
                   ...prev,
-                  { id: assistantId, role: "assistant", content: delta },
+                  {
+                    id: assistantId,
+                    role: "assistant",
+                    content: delta,
+                    fromCache: isCached,
+                  },
                 ]);
                 assistantContent = delta;
               } else {
@@ -701,7 +708,12 @@ export default function ChatPage() {
                     </div>
                   )}
                   {m.role === "assistant" ? (
-                    <AssistantContent content={m.content} />
+                    <>
+                      {m.fromCache && (
+                        <div className="cache-badge">⚡ Cyber Super</div>
+                      )}
+                      <AssistantContent content={m.content} />
+                    </>
                   ) : (
                     <span style={{ whiteSpace: "pre-wrap" }}>{m.content}</span>
                   )}
