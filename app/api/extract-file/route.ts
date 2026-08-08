@@ -5,7 +5,44 @@ export const runtime = "nodejs";
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const MAX_TEXT_LENGTH = 15000;
 
-const PLAIN_TEXT_EXTENSIONS = [".txt", ".md", ".markdown", ".csv", ".json", ".log"];
+const PLAIN_TEXT_EXTENSIONS = [
+  ".txt",
+  ".md",
+  ".markdown",
+  ".csv",
+  ".json",
+  ".log",
+  // Code, config, and web/markup formats — all plain text, read the
+  // same way as .txt/.md, no special parser needed.
+  ".html",
+  ".htm",
+  ".js",
+  ".jsx",
+  ".ts",
+  ".tsx",
+  ".css",
+  ".scss",
+  ".py",
+  ".xml",
+  ".yaml",
+  ".yml",
+  ".sh",
+  ".sql",
+  ".java",
+  ".c",
+  ".cpp",
+  ".h",
+  ".hpp",
+  ".go",
+  ".rb",
+  ".php",
+  ".rs",
+  ".swift",
+  ".kt",
+  ".env",
+  ".ini",
+  ".toml",
+];
 const SPREADSHEET_EXTENSIONS = [".xlsx", ".xls"];
 
 function getExtension(fileName: string): string {
@@ -93,7 +130,7 @@ export async function POST(req: NextRequest) {
     return new Response(
       JSON.stringify({
         error:
-          "Unsupported file type. Supported: .txt, .md, .csv, .json, .log, .pdf, .docx, .xlsx, .xls, .pptx",
+          "Desteklenmeyen dosya türü. Desteklenenler: .txt, .md, .csv, .json, .log, .pdf, .docx, .xlsx, .xls, .pptx, ve yaygın kod/config dosyaları (.html, .js, .ts, .css, .py, .xml, .yaml, .sh, .sql, .java, .c, .cpp, .go, .rb, .php, .rs, .swift, .kt, .env, .ini, .toml).",
       }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );

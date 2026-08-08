@@ -701,7 +701,7 @@ export default function ChatPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".txt,.md,.markdown,.csv,.json,.log,.pdf,.docx,.xlsx,.pptx"
+              accept=".txt,.md,.markdown,.csv,.json,.log,.pdf,.docx,.xlsx,.xls,.pptx,.html,.htm,.js,.jsx,.ts,.tsx,.css,.scss,.py,.xml,.yaml,.yml,.sh,.sql,.java,.c,.cpp,.h,.hpp,.go,.rb,.php,.rs,.swift,.kt,.env,.ini,.toml"
               style={{ display: "none" }}
               onChange={handleFileSelected}
             />
