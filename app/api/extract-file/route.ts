@@ -144,9 +144,18 @@ export async function POST(req: NextRequest) {
       JSON.stringify({ text: truncated, fileName: file.name }),
       { status: 200, headers: { "Content-Type": "application/json" } }
     );
-  } catch {
+  } catch (err) {
+    // TEMP: surface real error detail for diagnosis (sandbox cannot
+    // read Vercel's live function logs directly). Will be reverted to
+    // a generic message once the root cause is confirmed fixed.
+    const message = err instanceof Error ? err.message : String(err);
+    const stack = err instanceof Error ? err.stack : undefined;
     return new Response(
-      JSON.stringify({ error: "Failed to extract file content." }),
+      JSON.stringify({
+        error: "Failed to extract file content.",
+        debugMessage: message,
+        debugStack: stack,
+      }),
       { status: 502, headers: { "Content-Type": "application/json" } }
     );
   }
