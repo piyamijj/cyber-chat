@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import OpenAI from "openai";
 import { resolveGroqModel } from "@/lib/models";
 import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
+import { appendMessage, renameConversationIfDefault } from "@/lib/db";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,15 @@ interface ChatMessage {
 interface ChatRequestBody {
   model: string;
   messages: ChatMessage[];
+  conversationId?: string;
+}
+
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function deriveTitle(text: string): string {
+  const trimmed = text.trim().replace(/\s+/g, " ");
+  return trimmed.length > 60 ? `${trimmed.slice(0, 57)}...` : trimmed || "New chat";
 }
 
 function sseEncode(data: unknown): Uint8Array {
@@ -35,7 +45,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { model, messages } = body || {};
+  const { model, messages, conversationId } = body || {};
 
   if (!model || typeof model !== "string") {
     return new Response(
@@ -50,6 +60,12 @@ export async function POST(req: NextRequest) {
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
+
+  const deviceId = req.headers.get("x-device-id")?.trim() || null;
+  const hasValidConversation =
+    !!deviceId &&
+    typeof conversationId === "string" &&
+    UUID_REGEX.test(conversationId);
 
   let groqModel: string;
   try {
@@ -83,6 +99,31 @@ export async function POST(req: NextRequest) {
     ...sanitizedMessages,
   ];
 
+  // Best-effort persistence of the latest user message. Never blocks or
+  // fails the chat response if the DB is unavailable.
+  if (hasValidConversation) {
+    const lastUserMessage = [...sanitizedMessages]
+      .reverse()
+      .find((m) => m.role === "user");
+    if (lastUserMessage) {
+      try {
+        await appendMessage(
+          conversationId as string,
+          deviceId as string,
+          "user",
+          lastUserMessage.content
+        );
+        await renameConversationIfDefault(
+          conversationId as string,
+          deviceId as string,
+          deriveTitle(lastUserMessage.content)
+        );
+      } catch {
+        // Ignore persistence failures; chat still works without history.
+      }
+    }
+  }
+
   let stream;
   try {
     stream = await client.chat.completions.create({
@@ -103,10 +144,12 @@ export async function POST(req: NextRequest) {
 
   const encoderStream = new ReadableStream<Uint8Array>({
     async start(controller) {
+      let fullContent = "";
       try {
         for await (const chunk of stream) {
           const delta = chunk.choices?.[0]?.delta?.content;
           if (delta) {
+            fullContent += delta;
             controller.enqueue(sseEncode({ content: delta }));
           }
         }
@@ -117,6 +160,18 @@ export async function POST(req: NextRequest) {
         );
       } finally {
         controller.close();
+        if (hasValidConversation && fullContent) {
+          try {
+            await appendMessage(
+              conversationId as string,
+              deviceId as string,
+              "assistant",
+              fullContent
+            );
+          } catch {
+            // Ignore persistence failures; chat still works without history.
+          }
+        }
       }
     },
   });
