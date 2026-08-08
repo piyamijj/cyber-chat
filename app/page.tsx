@@ -31,7 +31,7 @@ function AssistantContent({ content }: { content: string }) {
 
 function TypingIndicator() {
   return (
-    <div className="typing-indicator" aria-label="Assistant is typing">
+    <div className="typing-indicator" aria-label="Asistan yazıyor">
       <span className="dot" />
       <span className="dot" />
       <span className="dot" />
@@ -202,7 +202,7 @@ export default function ChatPage() {
     if (!deviceId) return;
 
     const confirmed = window.confirm(
-      "Delete this conversation? This cannot be undone."
+      "Bu sohbeti sil? Bu işlem geri alınamaz."
     );
     if (!confirmed) return;
 
@@ -228,7 +228,7 @@ export default function ChatPage() {
       {
         id: nextId(),
         role: "assistant",
-        content: "Something went wrong. Please try again.",
+        content: "Bir sorun oluştu. Lütfen tekrar deneyin.",
       },
     ]);
   }
@@ -257,7 +257,7 @@ export default function ChatPage() {
             setConversations((prev) => [
               {
                 id: data.conversation.id,
-                title: data.conversation.title || "New chat",
+                title: data.conversation.title || "Yeni sohbet",
                 model: data.conversation.model || selectedModelId,
                 updated_at:
                   data.conversation.updated_at || new Date().toISOString(),
@@ -541,12 +541,12 @@ export default function ChatPage() {
               className="sidebar-new-chat-btn"
               onClick={handleNewChat}
             >
-              + New chat
+              + Yeni sohbet
             </button>
             <button
               type="button"
               className="sidebar-close-btn"
-              aria-label="Close sidebar"
+              aria-label="Kenar çubuğunu kapat"
               onClick={() => setSidebarOpen(false)}
             >
               ✕
@@ -554,7 +554,7 @@ export default function ChatPage() {
           </div>
           <div className="sidebar-conversation-list">
             {conversations.length === 0 && (
-              <div className="sidebar-empty">No conversations yet.</div>
+              <div className="sidebar-empty">Henüz sohbet yok.</div>
             )}
             {conversations.map((conversation) => (
               <div
@@ -565,7 +565,7 @@ export default function ChatPage() {
                 onClick={() => handleSelectConversation(conversation)}
               >
                 <div className="sidebar-conversation-title">
-                  {conversation.title || "New chat"}
+                  {conversation.title || "Yeni sohbet"}
                 </div>
                 <div className="sidebar-conversation-date">
                   {formatDate(conversation.updated_at)}
@@ -573,10 +573,11 @@ export default function ChatPage() {
                 <button
                   type="button"
                   className="sidebar-delete-btn"
-                  aria-label="Delete conversation"
+                  aria-label="Sohbeti sil"
+                  title="Sohbeti sil"
                   onClick={(e) => handleDeleteConversation(e, conversation.id)}
                 >
-                  ✕
+                  🗑
                 </button>
               </div>
             ))}
@@ -589,7 +590,7 @@ export default function ChatPage() {
           <button
             type="button"
             className="sidebar-toggle-btn"
-            aria-label="Toggle sidebar"
+            aria-label="Kenar çubuğunu aç/kapat"
             onClick={() => setSidebarOpen((prev) => !prev)}
           >
             ☰
@@ -601,7 +602,7 @@ export default function ChatPage() {
               value={selectedModelId}
               onChange={(e) => setSelectedModelId(e.target.value)}
               disabled={isLoading}
-              aria-label="Select model"
+              aria-label="Model seç"
             >
               {CYBER_MODELS.map((m) => (
                 <option key={m.id} value={m.id} title={m.description}>
@@ -615,7 +616,7 @@ export default function ChatPage() {
               onClick={handleNewChat}
               disabled={isLoading && messages.length === 0}
             >
-              New chat
+              Yeni sohbet
             </button>
           </div>
         </header>
@@ -624,8 +625,8 @@ export default function ChatPage() {
           <div className="chat-messages-inner">
             {messages.length === 0 && !isWaitingFirstToken && (
               <div className="empty-state">
-                Start a conversation with{" "}
-                {CYBER_MODELS.find((m) => m.id === selectedModelId)?.label}.
+                {CYBER_MODELS.find((m) => m.id === selectedModelId)?.label}{" "}
+                ile bir sohbet başlat.
               </div>
             )}
 
@@ -668,7 +669,7 @@ export default function ChatPage() {
                 type="button"
                 className="attached-file-remove-btn"
                 onClick={handleRemoveAttachedFile}
-                aria-label="Remove attached file"
+                aria-label="Eklenen dosyayı kaldır"
               >
                 ✕
               </button>
@@ -687,8 +688,8 @@ export default function ChatPage() {
               className="file-btn"
               onClick={handleFilePick}
               disabled={isLoading || isExtractingFile}
-              aria-label="Attach file"
-              title="Attach file"
+              aria-label="Dosya ekle"
+              title="Dosya ekle"
             >
               {isExtractingFile ? "…" : "📎"}
             </button>
@@ -697,12 +698,12 @@ export default function ChatPage() {
               className="chat-textarea"
               placeholder={
                 isTranscribing
-                  ? "Transcribing..."
+                  ? "Yazıya dökülüyor..."
                   : isRecording
-                  ? "Recording... click the mic to stop"
+                  ? "Kaydediliyor... durdurmak için mikrofona tıklayın"
                   : isExtractingFile
-                  ? "Reading file..."
-                  : "Message Cyber Chat..."
+                  ? "Dosya okunuyor..."
+                  : "Cyber Chat'e mesaj yaz..."
               }
               value={input}
               rows={1}
@@ -715,8 +716,8 @@ export default function ChatPage() {
               className={`mic-btn${isRecording ? " recording" : ""}`}
               onClick={handleMicClick}
               disabled={isLoading || isTranscribing}
-              aria-label={isRecording ? "Stop recording" : "Start voice input"}
-              title={isRecording ? "Stop recording" : "Start voice input"}
+              aria-label={isRecording ? "Kaydı durdur" : "Sesli girişi başlat"}
+              title={isRecording ? "Kaydı durdur" : "Sesli girişi başlat"}
             >
               {isTranscribing ? "…" : isRecording ? "■" : "🎤"}
             </button>
@@ -726,7 +727,7 @@ export default function ChatPage() {
               onClick={handleSend}
               disabled={isLoading || isTranscribing || !input.trim()}
             >
-              Send
+              Gönder
             </button>
           </div>
         </footer>

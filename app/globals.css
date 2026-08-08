@@ -205,21 +205,33 @@ main {
 
 .sidebar-delete-btn {
   position: absolute;
-  top: 8px;
+  top: 50%;
   right: 6px;
+  transform: translateY(-50%);
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: 14px;
+  line-height: 1;
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 5px 7px;
   border-radius: 6px;
   opacity: 0;
   transition: opacity 0.12s ease, color 0.12s ease, background-color 0.12s ease;
 }
 
-.sidebar-conversation-item:hover .sidebar-delete-btn {
-  opacity: 1;
+/* Desktop: reveal on row hover */
+@media (hover: hover) and (pointer: fine) {
+  .sidebar-conversation-item:hover .sidebar-delete-btn {
+    opacity: 1;
+  }
+}
+
+/* Touch devices (mobile/tablet): always visible, no hover available */
+@media (hover: none), (pointer: coarse) {
+  .sidebar-delete-btn {
+    opacity: 1;
+  }
 }
 
 .sidebar-delete-btn:hover {
