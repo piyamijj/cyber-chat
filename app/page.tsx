@@ -10,6 +10,8 @@ interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  sendContent?: string;
+  attachedFileName?: string;
 }
 
 interface Conversation {
@@ -67,6 +69,11 @@ export default function ChatPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isExtractingFile, setIsExtractingFile] = useState(false);
+  const [attachedFile, setAttachedFile] = useState<{
+    fileName: string;
+    text: string;
+  } | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -74,6 +81,7 @@ export default function ChatPage() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const id = getDeviceId();
@@ -242,15 +250,23 @@ export default function ChatPage() {
       }
     }
 
+    const fileToSend = attachedFile;
+    const sendContent = fileToSend
+      ? `${trimmed}\n\n[Attached file: ${fileToSend.fileName}]\n---\n${fileToSend.text}\n---`
+      : trimmed;
+
     const userMessage: ChatMessage = {
       id: nextId(),
       role: "user",
       content: trimmed,
+      sendContent,
+      attachedFileName: fileToSend?.fileName,
     };
 
     const history = [...messages, userMessage];
     setMessages(history);
     setInput("");
+    setAttachedFile(null);
     setIsLoading(true);
     setIsWaitingFirstToken(true);
 
@@ -270,7 +286,10 @@ export default function ChatPage() {
         },
         body: JSON.stringify({
           model: selectedModelId,
-          messages: history.map((m) => ({ role: m.role, content: m.content })),
+          messages: history.map((m) => ({
+            role: m.role,
+            content: m.sendContent || m.content,
+          })),
           conversationId,
         }),
         signal: controller.signal,
@@ -448,6 +467,43 @@ export default function ChatPage() {
     }
   }
 
+  function handleFilePick() {
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setIsExtractingFile(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/extract-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data?.text) {
+        setAttachedFile({ fileName: data.fileName || file.name, text: data.text });
+      } else {
+        appendErrorMessage();
+      }
+    } catch {
+      appendErrorMessage();
+    } finally {
+      setIsExtractingFile(false);
+    }
+  }
+
+  function handleRemoveAttachedFile() {
+    setAttachedFile(null);
+  }
+
   return (
     <div className="chat-shell-with-sidebar">
       {sidebarOpen && (
@@ -541,6 +597,11 @@ export default function ChatPage() {
             {messages.map((m) => (
               <div key={m.id} className={`bubble-row ${m.role}`}>
                 <div className={`bubble ${m.role}`}>
+                  {m.attachedFileName && (
+                    <div className="attached-file-chip">
+                      📎 {m.attachedFileName}
+                    </div>
+                  )}
                   {m.role === "assistant" ? (
                     <AssistantContent content={m.content} />
                   ) : (
@@ -563,7 +624,39 @@ export default function ChatPage() {
         </main>
 
         <footer className="chat-input-bar">
+          {attachedFile && (
+            <div className="attached-file-preview">
+              <span className="attached-file-preview-name">
+                📎 {attachedFile.fileName}
+              </span>
+              <button
+                type="button"
+                className="attached-file-remove-btn"
+                onClick={handleRemoveAttachedFile}
+                aria-label="Remove attached file"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           <div className="chat-input-inner">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".txt,.md,.markdown,.csv,.json,.log,.pdf,.docx,.xlsx,.pptx"
+              style={{ display: "none" }}
+              onChange={handleFileSelected}
+            />
+            <button
+              type="button"
+              className="file-btn"
+              onClick={handleFilePick}
+              disabled={isLoading || isExtractingFile}
+              aria-label="Attach file"
+              title="Attach file"
+            >
+              {isExtractingFile ? "…" : "📎"}
+            </button>
             <textarea
               ref={textareaRef}
               className="chat-textarea"
@@ -572,6 +665,8 @@ export default function ChatPage() {
                   ? "Transcribing..."
                   : isRecording
                   ? "Recording... click the mic to stop"
+                  : isExtractingFile
+                  ? "Reading file..."
                   : "Message Cyber Chat..."
               }
               value={input}
