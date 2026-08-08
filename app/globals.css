@@ -108,13 +108,16 @@ main {
 }
 
 .sidebar-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 14px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .sidebar-new-chat-btn {
-  width: 100%;
+  flex: 1;
   background: var(--accent);
   color: #ffffff;
   border: none;
@@ -124,6 +127,27 @@ main {
   font-weight: 600;
   cursor: pointer;
   transition: background-color 0.15s ease;
+}
+
+.sidebar-close-btn {
+  display: none;
+  flex-shrink: 0;
+  background: var(--surface-alt);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sidebar-close-btn:hover {
+  border-color: var(--accent);
+}
+
+.sidebar-backdrop {
+  display: none;
 }
 
 .sidebar-new-chat-btn:hover {
@@ -225,10 +249,25 @@ main {
     position: fixed;
     top: 0;
     left: 0;
-    z-index: 50;
+    bottom: 0;
+    z-index: 60;
     width: 82vw;
     max-width: 300px;
     box-shadow: 4px 0 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .sidebar-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 55;
   }
 }
 

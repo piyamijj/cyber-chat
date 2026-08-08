@@ -66,7 +66,7 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isWaitingFirstToken, setIsWaitingFirstToken] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isExtractingFile, setIsExtractingFile] = useState(false);
@@ -87,6 +87,22 @@ export default function ChatPage() {
     const id = getDeviceId();
     setDeviceId(id);
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setSidebarOpen(window.innerWidth > 768);
+  }, []);
+
+  function isMobileViewport(): boolean {
+    if (typeof window === "undefined") return false;
+    return window.innerWidth <= 768;
+  }
+
+  function closeSidebarOnMobile() {
+    if (isMobileViewport()) {
+      setSidebarOpen(false);
+    }
+  }
 
   const refreshConversations = useCallback(async (currentDeviceId: string) => {
     if (!currentDeviceId) return;
@@ -131,10 +147,14 @@ export default function ChatPage() {
     setInput("");
     setIsLoading(false);
     setIsWaitingFirstToken(false);
+    closeSidebarOnMobile();
   }
 
   async function handleSelectConversation(conversation: Conversation) {
-    if (!deviceId || conversation.id === activeConversationId) return;
+    if (!deviceId || conversation.id === activeConversationId) {
+      closeSidebarOnMobile();
+      return;
+    }
 
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -147,6 +167,7 @@ export default function ChatPage() {
     setIsLoading(false);
     setIsWaitingFirstToken(false);
     setMessages([]);
+    closeSidebarOnMobile();
 
     try {
       const response = await fetch(
@@ -507,6 +528,12 @@ export default function ChatPage() {
   return (
     <div className="chat-shell-with-sidebar">
       {sidebarOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      {sidebarOpen && (
         <aside className="sidebar">
           <div className="sidebar-header">
             <button
@@ -515,6 +542,14 @@ export default function ChatPage() {
               onClick={handleNewChat}
             >
               + New chat
+            </button>
+            <button
+              type="button"
+              className="sidebar-close-btn"
+              aria-label="Close sidebar"
+              onClick={() => setSidebarOpen(false)}
+            >
+              ✕
             </button>
           </div>
           <div className="sidebar-conversation-list">
