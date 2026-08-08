@@ -70,6 +70,7 @@ export default function ChatPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [isExtractingFile, setIsExtractingFile] = useState(false);
+  const [fileError, setFileError] = useState<string | null>(null);
   const [attachedFile, setAttachedFile] = useState<{
     fileName: string;
     text: string;
@@ -497,6 +498,7 @@ export default function ChatPage() {
     e.target.value = "";
     if (!file) return;
 
+    setFileError(null);
     setIsExtractingFile(true);
     try {
       const formData = new FormData();
@@ -510,12 +512,15 @@ export default function ChatPage() {
       const data = await response.json();
 
       if (response.ok && data?.text) {
+        setFileError(null);
         setAttachedFile({ fileName: data.fileName || file.name, text: data.text });
       } else {
-        appendErrorMessage();
+        setFileError(
+          data?.error || "Dosya okunamadı. Lütfen başka bir dosya deneyin."
+        );
       }
     } catch {
-      appendErrorMessage();
+      setFileError("Dosya okunamadı. Lütfen başka bir dosya deneyin.");
     } finally {
       setIsExtractingFile(false);
     }
@@ -523,6 +528,10 @@ export default function ChatPage() {
 
   function handleRemoveAttachedFile() {
     setAttachedFile(null);
+  }
+
+  function handleDismissFileError() {
+    setFileError(null);
   }
 
   return (
@@ -660,6 +669,19 @@ export default function ChatPage() {
         </main>
 
         <footer className="chat-input-bar">
+          {fileError && (
+            <div className="file-error-banner">
+              <span className="file-error-text">⚠ {fileError}</span>
+              <button
+                type="button"
+                className="file-error-dismiss-btn"
+                onClick={handleDismissFileError}
+                aria-label="Uyarıyı kapat"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           {attachedFile && (
             <div className="attached-file-preview">
               <span className="attached-file-preview-name">

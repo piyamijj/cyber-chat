@@ -106,7 +106,14 @@ export async function POST(req: NextRequest) {
       const arrayBuffer = await file.arrayBuffer();
       extractedText = new TextDecoder("utf-8").decode(arrayBuffer);
     } else if (extension === ".pdf") {
-      const pdfParse = (await import("pdf-parse")).default;
+      // Import the internal lib file directly, NOT the package's
+      // top-level index.js: pdf-parse's index.js has a debug-mode
+      // guard that misfires under Next.js/Vercel bundling and tries
+      // to read a nonexistent test fixture (test/data/05-versions-
+      // space.pdf), throwing ENOENT on every real request. Bypassing
+      // index.js avoids that guard entirely.
+      const pdfParse = (await import("pdf-parse/lib/pdf-parse.js"))
+        .default as (data: Buffer) => Promise<{ text: string }>;
       const buffer = Buffer.from(await file.arrayBuffer());
       const result = await pdfParse(buffer);
       extractedText = result.text || "";
