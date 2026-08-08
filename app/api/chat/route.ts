@@ -1,14 +1,17 @@
 import { NextRequest } from "next/server";
 import OpenAI from "openai";
-import { resolveGroqModel } from "@/lib/models";
+import { resolveModel } from "@/lib/models";
 import { SYSTEM_PROMPT } from "@/lib/systemPrompt";
 import { appendMessage, renameConversationIfDefault } from "@/lib/db";
+import { streamGeminiChat } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 
 interface ChatMessage {
   role: "system" | "user" | "assistant";
   content: string;
+  imageBase64?: string;
+  imageMimeType?: string;
 }
 
 interface ChatRequestBody {
@@ -67,28 +70,15 @@ export async function POST(req: NextRequest) {
     typeof conversationId === "string" &&
     UUID_REGEX.test(conversationId);
 
-  let groqModel: string;
+  let cyberModel;
   try {
-    groqModel = resolveGroqModel(model);
+    cyberModel = resolveModel(model);
   } catch {
     return new Response(
       JSON.stringify({ error: "Unknown model selection." }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
-
-  const apiKey = process.env.GROQ_API_KEY;
-  if (!apiKey) {
-    return new Response(
-      JSON.stringify({ error: "Server is not configured correctly." }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  const client = new OpenAI({
-    apiKey,
-    baseURL: "https://api.groq.com/openai/v1",
-  });
 
   // Always enforce our own system prompt server-side: drop any system
   // messages the client may have sent, then prepend the fixed one.
@@ -124,34 +114,86 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let stream;
-  try {
-    stream = await client.chat.completions.create({
-      model: groqModel,
-      messages: finalMessages,
-      stream: true,
+  // Resolve provider + credentials, and build an async generator of
+  // plain-text deltas regardless of which upstream provider is used, so
+  // the streaming/persistence logic below stays provider-agnostic.
+  let textDeltaGenerator: AsyncGenerator<string, void, unknown>;
+
+  if (cyberModel.provider === "gemini") {
+    const geminiMessages = sanitizedMessages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        imageBase64: m.imageBase64,
+        imageMimeType: m.imageMimeType,
+      }));
+
+    try {
+      textDeltaGenerator = streamGeminiChat(
+        cyberModel.providerModel,
+        SYSTEM_PROMPT,
+        geminiMessages
+      );
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Server is not configured correctly." }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  } else {
+    const apiKey =
+      cyberModel.provider === "groq-expert"
+        ? process.env.GROQ_API_KEY_EXPERT
+        : process.env.GROQ_API_KEY;
+
+    if (!apiKey) {
+      return new Response(
+        JSON.stringify({ error: "Server is not configured correctly." }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    const client = new OpenAI({
+      apiKey,
+      baseURL: "https://api.groq.com/openai/v1",
     });
-  } catch (err: any) {
-    const status =
-      typeof err?.status === "number" && err.status >= 400 && err.status < 600
-        ? err.status
-        : 502;
-    return new Response(
-      JSON.stringify({ error: "Upstream model provider request failed." }),
-      { status, headers: { "Content-Type": "application/json" } }
-    );
+
+    let groqStream;
+    try {
+      groqStream = await client.chat.completions.create({
+        model: cyberModel.providerModel,
+        messages: finalMessages,
+        stream: true,
+      });
+    } catch (err: any) {
+      const status =
+        typeof err?.status === "number" &&
+        err.status >= 400 &&
+        err.status < 600
+          ? err.status
+          : 502;
+      return new Response(
+        JSON.stringify({ error: "Upstream model provider request failed." }),
+        { status, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    textDeltaGenerator = (async function* () {
+      for await (const chunk of groqStream) {
+        const delta = chunk.choices?.[0]?.delta?.content;
+        if (delta) yield delta;
+      }
+    })();
   }
 
   const encoderStream = new ReadableStream<Uint8Array>({
     async start(controller) {
       let fullContent = "";
       try {
-        for await (const chunk of stream) {
-          const delta = chunk.choices?.[0]?.delta?.content;
-          if (delta) {
-            fullContent += delta;
-            controller.enqueue(sseEncode({ content: delta }));
-          }
+        for await (const delta of textDeltaGenerator) {
+          fullContent += delta;
+          controller.enqueue(sseEncode({ content: delta }));
         }
         controller.enqueue(sseDone());
       } catch {

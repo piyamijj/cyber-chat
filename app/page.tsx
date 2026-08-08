@@ -12,6 +12,8 @@ interface ChatMessage {
   content: string;
   sendContent?: string;
   attachedFileName?: string;
+  imageBase64?: string;
+  imageMimeType?: string;
 }
 
 interface Conversation {
@@ -74,6 +76,8 @@ export default function ChatPage() {
   const [attachedFile, setAttachedFile] = useState<{
     fileName: string;
     text: string;
+    imageBase64?: string;
+    imageMimeType?: string;
   } | null>(null);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
@@ -236,7 +240,10 @@ export default function ChatPage() {
 
   async function handleSend() {
     const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
+    if (isLoading) return;
+    // Allow sending with no typed text only if an image is attached
+    // (e.g. "what's in this picture?" with just the image itself).
+    if (!trimmed && !attachedFile?.imageBase64) return;
 
     let conversationId = activeConversationId;
 
@@ -273,16 +280,21 @@ export default function ChatPage() {
     }
 
     const fileToSend = attachedFile;
+    const isImageAttachment = !!fileToSend?.imageBase64;
     const sendContent = fileToSend
-      ? `${trimmed}\n\n[Attached file: ${fileToSend.fileName}]\n---\n${fileToSend.text}\n---`
+      ? isImageAttachment
+        ? trimmed || "Bu görseli analiz et."
+        : `${trimmed}\n\n[Attached file: ${fileToSend.fileName}]\n---\n${fileToSend.text}\n---`
       : trimmed;
 
     const userMessage: ChatMessage = {
       id: nextId(),
       role: "user",
-      content: trimmed,
+      content: trimmed || (isImageAttachment ? "🖼 (görsel)" : ""),
       sendContent,
       attachedFileName: fileToSend?.fileName,
+      imageBase64: fileToSend?.imageBase64,
+      imageMimeType: fileToSend?.imageMimeType,
     };
 
     const history = [...messages, userMessage];
@@ -311,6 +323,8 @@ export default function ChatPage() {
           messages: history.map((m) => ({
             role: m.role,
             content: m.sendContent || m.content,
+            imageBase64: m.imageBase64,
+            imageMimeType: m.imageMimeType,
           })),
           conversationId,
         }),
@@ -493,12 +507,51 @@ export default function ChatPage() {
     fileInputRef.current?.click();
   }
 
+  function fileToBase64(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        // result is a data URL like "data:image/png;base64,AAAA..."
+        const base64 = result.split(",")[1] || "";
+        resolve(base64);
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+  }
+
   async function handleFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
 
     setFileError(null);
+
+    const currentModel = CYBER_MODELS.find((m) => m.id === selectedModelId);
+    const isImage = file.type.startsWith("image/");
+
+    if (isImage) {
+      if (!currentModel?.supportsImages) {
+        setFileError(
+          "Görsel yükleme sadece cyber vision modelinde desteklenir. Lütfen önce modeli değiştirin."
+        );
+        return;
+      }
+      try {
+        const base64 = await fileToBase64(file);
+        setAttachedFile({
+          fileName: file.name,
+          text: "",
+          imageBase64: base64,
+          imageMimeType: file.type,
+        });
+      } catch {
+        setFileError("Görsel okunamadı. Lütfen başka bir görsel deneyin.");
+      }
+      return;
+    }
+
     setIsExtractingFile(true);
     try {
       const formData = new FormData();
@@ -644,7 +697,7 @@ export default function ChatPage() {
                 <div className={`bubble ${m.role}`}>
                   {m.attachedFileName && (
                     <div className="attached-file-chip">
-                      📎 {m.attachedFileName}
+                      {m.imageBase64 ? "🖼" : "📎"} {m.attachedFileName}
                     </div>
                   )}
                   {m.role === "assistant" ? (
@@ -685,7 +738,7 @@ export default function ChatPage() {
           {attachedFile && (
             <div className="attached-file-preview">
               <span className="attached-file-preview-name">
-                📎 {attachedFile.fileName}
+                {attachedFile.imageBase64 ? "🖼" : "📎"} {attachedFile.fileName}
               </span>
               <button
                 type="button"
@@ -701,7 +754,12 @@ export default function ChatPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".txt,.md,.markdown,.csv,.json,.log,.pdf,.docx,.xlsx,.xls,.pptx,.html,.htm,.js,.jsx,.ts,.tsx,.css,.scss,.py,.xml,.yaml,.yml,.sh,.sql,.java,.c,.cpp,.h,.hpp,.go,.rb,.php,.rs,.swift,.kt,.env,.ini,.toml"
+              accept={
+                CYBER_MODELS.find((m) => m.id === selectedModelId)
+                  ?.supportsImages
+                  ? ".txt,.md,.markdown,.csv,.json,.log,.pdf,.docx,.xlsx,.xls,.pptx,.html,.htm,.js,.jsx,.ts,.tsx,.css,.scss,.py,.xml,.yaml,.yml,.sh,.sql,.java,.c,.cpp,.h,.hpp,.go,.rb,.php,.rs,.swift,.kt,.env,.ini,.toml,.jpg,.jpeg,.png,.webp"
+                  : ".txt,.md,.markdown,.csv,.json,.log,.pdf,.docx,.xlsx,.xls,.pptx,.html,.htm,.js,.jsx,.ts,.tsx,.css,.scss,.py,.xml,.yaml,.yml,.sh,.sql,.java,.c,.cpp,.h,.hpp,.go,.rb,.php,.rs,.swift,.kt,.env,.ini,.toml"
+              }
               style={{ display: "none" }}
               onChange={handleFileSelected}
             />
