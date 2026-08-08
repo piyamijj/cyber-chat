@@ -304,9 +304,17 @@ export async function POST(req: NextRequest) {
           }
         }
         if (isCacheEligible && fullContent) {
-          // Fire-and-forget: don't let cache writing delay closing the
-          // stream the user is already reading.
-          storeCache(lastUserMsg.content, model, fullContent).catch(() => {});
+          // Awaited (not fire-and-forget): the embedding + DB write
+          // must land before the response closes, otherwise a repeat
+          // question arriving immediately after can race the cache
+          // write and miss it. The user already has the full text by
+          // this point, so this only delays the stream's [DONE]/close
+          // event, not anything visible.
+          try {
+            await storeCache(lastUserMsg.content, model, fullContent);
+          } catch {
+            // Never let a cache-write failure affect the response.
+          }
         }
         controller.close();
       }
