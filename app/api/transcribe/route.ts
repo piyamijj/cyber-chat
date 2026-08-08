@@ -57,6 +57,11 @@ export async function POST(req: NextRequest) {
       file: uploadableFile,
       model: "whisper-large-v3",
       response_format: "json",
+      // Force Turkish: without this, Whisper auto-detects the spoken
+      // language and short/unclear clips can get misdetected as a
+      // different language entirely, producing a nonsensical transcript
+      // in the wrong language instead of a bad-but-Turkish guess.
+      language: "tr",
     });
 
     return new Response(JSON.stringify({ text: transcription.text }), {
