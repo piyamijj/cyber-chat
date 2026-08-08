@@ -65,10 +65,15 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isWaitingFirstToken, setIsWaitingFirstToken] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     const id = getDeviceId();
@@ -354,6 +359,95 @@ export default function ChatPage() {
     }
   }
 
+  async function handleStartRecording() {
+    if (isRecording || isTranscribing || isLoading) return;
+
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices ||
+      typeof MediaRecorder === "undefined"
+    ) {
+      appendErrorMessage();
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      mediaStreamRef.current = stream;
+      recordedChunksRef.current = [];
+
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (event: BlobEvent) => {
+        if (event.data && event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      recorder.onstop = async () => {
+        mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+
+        const blob = new Blob(recordedChunksRef.current, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        recordedChunksRef.current = [];
+
+        if (blob.size === 0) {
+          return;
+        }
+
+        setIsTranscribing(true);
+        try {
+          const formData = new FormData();
+          formData.append("audio", blob, "recording.webm");
+
+          const response = await fetch("/api/transcribe", {
+            method: "POST",
+            body: formData,
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data?.text) {
+              setInput((prev) =>
+                prev ? `${prev} ${data.text}` : data.text
+              );
+            }
+          }
+        } catch {
+          // Silently ignore transcription failures; user can type instead.
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+
+      recorder.start();
+      setIsRecording(true);
+    } catch {
+      // Microphone permission denied or unavailable; ignore silently.
+    }
+  }
+
+  function handleStopRecording() {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
+    setIsRecording(false);
+  }
+
+  function handleMicClick() {
+    if (isRecording) {
+      handleStopRecording();
+    } else {
+      handleStartRecording();
+    }
+  }
+
   return (
     <div className="chat-shell-with-sidebar">
       {sidebarOpen && (
@@ -473,18 +567,34 @@ export default function ChatPage() {
             <textarea
               ref={textareaRef}
               className="chat-textarea"
-              placeholder="Message Cyber Chat..."
+              placeholder={
+                isTranscribing
+                  ? "Transcribing..."
+                  : isRecording
+                  ? "Recording... click the mic to stop"
+                  : "Message Cyber Chat..."
+              }
               value={input}
               rows={1}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={isLoading}
+              disabled={isLoading || isTranscribing}
             />
+            <button
+              type="button"
+              className={`mic-btn${isRecording ? " recording" : ""}`}
+              onClick={handleMicClick}
+              disabled={isLoading || isTranscribing}
+              aria-label={isRecording ? "Stop recording" : "Start voice input"}
+              title={isRecording ? "Stop recording" : "Start voice input"}
+            >
+              {isTranscribing ? "…" : isRecording ? "■" : "🎤"}
+            </button>
             <button
               type="button"
               className="send-btn"
               onClick={handleSend}
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || isTranscribing || !input.trim()}
             >
               Send
             </button>

@@ -645,6 +645,46 @@ main {
   color: var(--text-muted);
 }
 
+.mic-btn {
+  flex-shrink: 0;
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.mic-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.mic-btn.recording {
+  background: rgba(229, 72, 77, 0.15);
+  border-color: var(--danger);
+  color: var(--danger);
+  animation: mic-pulse 1.4s infinite ease-in-out;
+}
+
+.mic-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+@keyframes mic-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(229, 72, 77, 0.12);
+  }
+}
+
 .send-btn {
   flex-shrink: 0;
   background: var(--accent);
