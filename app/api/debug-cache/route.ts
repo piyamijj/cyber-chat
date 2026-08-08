@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       LIMIT 5
     `;
     result.semanticCandidates = semanticRows;
-    result.similarityThreshold = 0.93;
+    result.similarityThreshold = 0.9;
   } catch (err) {
     result.semanticQueryError = err instanceof Error ? err.message : String(err);
   }

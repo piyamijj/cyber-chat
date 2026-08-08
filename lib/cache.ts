@@ -1,7 +1,13 @@
 import { sql, ensureSchema } from "./db";
 import { embedText } from "./gemini";
 
-const SIMILARITY_THRESHOLD = 0.93;
+// Gemini text embeddings tend to sit in a fairly narrow cosine-similarity
+// band even for genuinely-different sentences on the same topic, so a
+// naive high bar (e.g. 0.93+) rejects real paraphrases of the same
+// question. 0.90 was tuned against real examples (e.g. "X'in başkenti
+// neresidir" vs "X nin baskenti hangi sehirdir acaba" measured ~0.92)
+// while staying well above cross-topic similarity (~0.6-0.7 observed).
+const SIMILARITY_THRESHOLD = 0.9;
 
 export interface CacheHit {
   answer: string;
