@@ -255,7 +255,145 @@ main {
   margin-bottom: 6px;
 }
 
-/* Code blocks inside bubbles */
+/* Markdown rendering inside assistant bubbles */
+.markdown-body {
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+
+.markdown-body > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-body > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-body p {
+  margin: 0 0 10px;
+  white-space: pre-wrap;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  color: var(--text-primary);
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 16px 0 8px;
+}
+
+.markdown-body h1 {
+  font-size: 19px;
+}
+
+.markdown-body h2 {
+  font-size: 17px;
+}
+
+.markdown-body h3 {
+  font-size: 15.5px;
+}
+
+.markdown-body h4 {
+  font-size: 14.5px;
+}
+
+.markdown-body strong {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.markdown-body em {
+  font-style: italic;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+
+.markdown-body li {
+  margin: 4px 0;
+}
+
+.markdown-body li > ul,
+.markdown-body li > ol {
+  margin: 4px 0 4px 0;
+}
+
+.markdown-body hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 14px 0;
+}
+
+.markdown-body a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: rgba(79, 140, 255, 0.4);
+}
+
+.markdown-body a:hover {
+  text-decoration-color: var(--accent);
+}
+
+.markdown-body blockquote {
+  margin: 0 0 10px;
+  padding: 4px 14px;
+  border-left: 3px solid var(--border);
+  color: var(--text-muted);
+}
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 4px 0 12px;
+  font-size: 13.5px;
+  display: block;
+  overflow-x: auto;
+}
+
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+}
+
+.markdown-body th {
+  background: var(--surface-alt);
+  font-weight: 600;
+}
+
+.markdown-body code {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 13px;
+}
+
+.markdown-body pre {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.markdown-body pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Code blocks inside bubbles (legacy, still used for user bubble plain text) */
 .bubble pre {
   background: var(--code-bg);
   border: 1px solid var(--border);

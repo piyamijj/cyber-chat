@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { CYBER_MODELS, getDefaultModelId } from "@/lib/models";
 
 interface ChatMessage {
@@ -9,26 +11,12 @@ interface ChatMessage {
   content: string;
 }
 
-function renderContent(content: string) {
-  const parts = content.split(/```/g);
-  return parts.map((part, idx) => {
-    if (idx % 2 === 1) {
-      const lines = part.split("\n");
-      const maybeLang = lines[0]?.trim();
-      const code =
-        maybeLang && lines.length > 1 ? lines.slice(1).join("\n") : part;
-      return (
-        <pre key={idx}>
-          <code>{code.replace(/\n$/, "")}</code>
-        </pre>
-      );
-    }
-    return (
-      <span key={idx} style={{ whiteSpace: "pre-wrap" }}>
-        {part}
-      </span>
-    );
-  });
+function AssistantContent({ content }: { content: string }) {
+  return (
+    <div className="markdown-body">
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+    </div>
+  );
 }
 
 function TypingIndicator() {
@@ -249,7 +237,13 @@ export default function ChatPage() {
 
           {messages.map((m) => (
             <div key={m.id} className={`bubble-row ${m.role}`}>
-              <div className={`bubble ${m.role}`}>{renderContent(m.content)}</div>
+              <div className={`bubble ${m.role}`}>
+                {m.role === "assistant" ? (
+                  <AssistantContent content={m.content} />
+                ) : (
+                  <span style={{ whiteSpace: "pre-wrap" }}>{m.content}</span>
+                )}
+              </div>
             </div>
           ))}
 
